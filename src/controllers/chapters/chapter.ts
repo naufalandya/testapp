@@ -205,6 +205,91 @@ export const getListTopicsByChapter = async (req: Request, res: Response) => {
     }
 };
 
+export const getListQuestionsV2 = async (req: Request, res: Response) => {
+    try {
+        const user_id = (req as any).user?.id;
+        if (!user_id) {
+            return GlobalResponse(res, true, 401, "Unauthorized", {});
+        }
+
+        const { page = "1", limit = "10", sort_by = "id", sort_order = "asc", topic_id } = req.query;
+
+        if (!topic_id) {
+            return GlobalResponse(res, true, 400, "Topic ID is required", {});
+        }
+
+        const pageNum = Math.max(1, parseInt(page as string, 10));
+        const limitNum = Math.max(1, parseInt(limit as string, 10));
+        const offset = (pageNum - 1) * limitNum;
+
+        const allowedSortColumns = ["id", "title", "total_correct", "total_incorrect", "time_limit"];
+        const sortColumn = allowedSortColumns.includes(sort_by as string) ? sort_by : "id";
+        const sortOrder = sort_order === "desc" ? "DESC" : "ASC";
+
+        const questions = await db.$queryRaw<{ 
+            id: number;
+            title: string;
+            description: string | null;
+            explanation: string | null;
+            difficulty: string | null;
+            type: string | null;
+            tag: string | null;
+            total_correct: number;
+            total_incorrect: number;
+            avg_time_taken: number | null;
+            user_struggles: number;
+            time_limit: number | null;
+            is_active: boolean;
+        }[]>(Prisma.sql`
+            WITH question_stats AS (
+                SELECT 
+                    q.id,
+                    COUNT(CASE WHEN msa.is_correct = true THEN msa.id END) AS total_correct,
+                    COUNT(CASE WHEN msa.is_correct = false THEN msa.id END) AS total_incorrect,
+                    AVG(msa.time_taken) AS avg_time_taken,
+                    COUNT(q.id) - COUNT(CASE WHEN msa.is_correct = true THEN msa.id END) AS user_struggles
+                FROM questions q
+                LEFT JOIN multiple_student_answers_abcd msa ON msa.question_id = q.id
+                GROUP BY q.id
+            )
+            SELECT 
+                q.id,
+                q.title,
+                q.description,
+                q.explanation,
+                d.title AS difficulty,
+                t.title AS type,
+                tg.title AS tag,
+                qs.total_correct,
+                qs.total_incorrect,
+                qs.avg_time_taken,
+                qs.user_struggles,
+                q.time_limit,
+                q.is_active
+            FROM questions q
+            LEFT JOIN difficulty d ON q.difficulty_id = d.id
+            LEFT JOIN type t ON q.type_id = t.id
+            LEFT JOIN tags tg ON q.tag_id = tg.id
+            LEFT JOIN question_stats qs ON q.id = qs.id
+            WHERE q.subtopic_id = ${topic_id}  
+            ORDER BY ${Prisma.raw(`"${sortColumn}"`)} ${Prisma.raw(sortOrder)}
+            LIMIT ${limitNum} OFFSET ${offset};
+        `);
+
+        return GlobalResponse(res, false, 200, "List of questions retrieved successfully", {
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+            },
+            data: questions,
+        });
+
+    } catch (error) {
+        console.error("Get List Questions Error:", error);
+        return InternalServerErrorResponse(req, res, error as Error);
+    }
+};
+
 
 export const createChapter = async (req: Request, res: Response) => {
     try {
