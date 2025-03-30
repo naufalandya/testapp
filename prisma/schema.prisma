@@ -12,3 +12,320 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model users {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String?
+  username String @unique
+  provider      String?
+  sub String?
+  is_active     Boolean  @default(false)
+  is_verified   Boolean  @default(false)
+
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  creator_profiles profiles[] @relation(name: "user_profiles_created_by")
+  updater_profiles profiles[] @relation(name: "user_profiles_updated_by")
+
+  profiles profiles? @relation(name: "user_profile")
+
+  questions_creator questions[] @relation(name: "user_questions_created_by")
+  questions_updater questions[] @relation(name: "user_questions_updated_by")
+
+
+  notifications notifications[] @relation(name: "user_notifications")
+  question_feedbacks question_feedbacks[]
+
+  topic_progress topic_progress[]
+
+  chapter_progress chapter_progress[]
+
+  saved_questions saved_questions[]
+  bookmark_questions bookmark_questions[]
+  refresh_token refresh_token[]
+
+  chapter_creator chapter[] @relation(name: "user_chapter_creator")
+  chapter_updater chapter[] @relation(name: "user_chapter_updater")
+
+  topics_creator topics[] @relation(name: "user_subtopic_creator")
+  topics_updater topics[] @relation(name: "user_subtopic_updater")
+}
+
+model refresh_token {
+  id        String   @id @default(uuid())
+  user_id    String   @unique
+  token     String   
+  createdAt DateTime @default(now())
+
+  user      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+
+model profiles {
+  id              String   @id @default(uuid())
+  fullname        String?
+  user_id         String   @unique
+  phone_number    String?
+  birth_date      DateTime?
+  address         String?
+  city           String?
+  country         String?
+  gender          String?
+  profile_picture String?
+  school          String?
+  class           String?
+  graduation_year Int?
+  created_at      DateTime @default(now())
+  created_by      String?
+  updated_at      DateTime @updatedAt
+  updated_by      String?
+
+  user    users @relation(name: "user_profile", fields: [user_id], references: [id])
+  creator users? @relation(name: "user_profiles_created_by", fields: [created_by], references: [id])
+  updater users? @relation(name: "user_profiles_updated_by", fields: [updated_by], references: [id])
+}
+
+model chapter {
+  id          Int   @id @default(autoincrement())
+  title       String?
+  description String?
+
+  created_at DateTime @default(now())
+  created_by String?
+  updated_at DateTime @updatedAt
+  updated_by String?
+
+  user_id String?
+
+  chapter_creator users? @relation(fields: [created_by], references: [id], name: "user_chapter_creator")
+  chapter_updater users? @relation(fields: [updated_by], references: [id], name: "user_chapter_updater")
+
+  topics topics[]
+  chapter_progress chapter_progress[]
+}
+
+model topics {
+  id         Int   @id @default(autoincrement())
+  title       String?
+  description String?
+
+  chapter_id Int?
+
+  created_at DateTime @default(now())
+  created_by String?
+  updated_at DateTime @updatedAt
+  updated_by String?
+
+
+  chapter chapter? @relation(fields: [chapter_id], references: [id])
+  subtopic_creator users? @relation(fields: [created_by], references: [id], name: "user_subtopic_creator")
+  subtopic_updater users? @relation(fields: [updated_by], references: [id], name: "user_subtopic_updater")
+
+  questions questions[] @relation(name: "topic_question")
+
+  topic_progress topic_progress[]
+}
+
+model difficulty {
+  id          Int   @id @default(autoincrement())
+  title       String?
+  description String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  questions questions[]
+}
+
+model type {
+  id          Int   @id @default(autoincrement())
+  title       String?
+  description String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  questions questions[]
+}
+
+
+
+model questions {
+  id          Int   @id @default(autoincrement())
+  title       String?
+  description String?
+
+  question String?
+
+  subtopic_id Int? @default(0)
+  difficulty_id Int? @default(0)
+
+  explanation String?
+  explanation_image String?
+
+  time_limit Int?
+
+  total_correct Int?
+  total_incorrect Int?
+
+  type_id Int? @default(0)
+  tag_id Int? @default(0)
+
+  is_active Boolean @default(true)
+
+  created_at      DateTime @default(now())
+  created_by      String?
+  updated_at      DateTime @updatedAt
+  updated_by      String?
+
+  question_creator users? @relation(name: "user_questions_created_by", fields: [created_by], references: [id])
+  question_updater users? @relation(name: "user_questions_updated_by", fields: [updated_by], references: [id])
+  
+  topic topics? @relation(name: "topic_question", fields: [subtopic_id], references: [id])
+  difficulty difficulty? @relation(fields: [difficulty_id], references: [id])
+  type type? @relation(fields: [type_id], references: [id])
+
+  multiple_answers_abcd multiple_answers_abcd[]
+  multiple_student_answers_abcd multiple_student_answers_abcd[]
+
+  question_feedbacks question_feedbacks[]
+  saved_questions saved_questions[]
+
+  tags tags? @relation(fields: [tag_id], references: [id])
+}
+
+model tags {
+  id          Int   @id @default(autoincrement())
+  title       String?
+  description String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  questions questions[]
+}
+
+model multiple_answers_abcd {
+  id          String   @id @default(uuid())
+  question_id Int?
+  option_a    String?
+  option_b    String?
+  option_c    String?
+  option_d    String?
+  correct_answer String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  question questions? @relation(fields: [question_id], references: [id])
+}
+
+model multiple_student_answers_abcd {
+  id          String   @id @default(uuid())
+  question_id Int?
+  selected_answer    String?
+
+  is_correct Boolean? @default(false)
+  time_taken Int?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  question questions? @relation(fields: [question_id], references: [id])
+}
+
+model question_feedbacks {
+  id          String   @id @default(uuid())
+  question_id Int?
+  rating Float?
+  user_id     String?
+  feedback    String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  question questions? @relation(fields: [question_id], references: [id])
+  user users? @relation(fields: [user_id], references: [id])
+}
+
+model notifications {
+  id          String   @id @default(uuid())
+  title       String?
+  message String?
+  is_read   Boolean @default(false)
+  redirect String?
+
+  user_id String?
+
+  user users? @relation(fields: [user_id], references: [id], name: "user_notifications")
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model topic_progress {
+  id          String   @id @default(uuid())
+  user_id     String?
+  topic_id Int?
+  is_completed Boolean @default(false)
+
+  created_at DateTime @default(now())
+  completed_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user users? @relation(fields: [user_id], references: [id])
+  topic topics? @relation(fields: [topic_id], references: [id])
+}
+
+model chapter_progress {
+  id          String   @id @default(uuid())
+  user_id     String?
+  chapter_id Int?
+  is_completed Boolean @default(false)
+
+  created_at DateTime @default(now())
+  completed_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user users? @relation(fields: [user_id], references: [id])
+  chapter chapter? @relation(fields: [chapter_id], references: [id])
+}
+
+model saved_questions {
+  id          Int   @id @default(autoincrement())
+  user_id     String?
+  question_id Int?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user users? @relation(fields: [user_id], references: [id])
+  question questions? @relation(fields: [question_id], references: [id])
+  bookmark_questions bookmark_questions[]
+}
+
+model bookmark_questions {
+  id          String   @id @default(uuid())
+  user_id     String?
+  saved_questions_id Int?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user users? @relation(fields: [user_id], references: [id])
+  saved_questions saved_questions? @relation(fields: [saved_questions_id], references: [id])
+}
+
+model error_log {
+  id             String   @id @default(uuid())
+  feature_name   String? 
+  process_id     String?  
+  user_id        String? 
+  error          String? 
+  error_message  String?
+  error_stack    String? 
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+}

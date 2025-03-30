@@ -6,7 +6,7 @@ const router = Router();
 router.get("/", async function(req: Request, res: Response): Promise<void> {
     let a = 2;
 
-    return GlobalResponse(res, 200, false, 200, "Success", { a });
+    return GlobalResponse(res, false, 200, "Success", { a });
 });
 
 

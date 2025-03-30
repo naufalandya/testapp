@@ -1,8 +1,10 @@
-import { type Response } from "express";
+import { type Request, type Response } from "express";
+import { UserRequest } from "../types/auth.type";
+import { utils } from "../utils";
 
-export const GlobalResponse = (res : Response, status : number, error : boolean, code : number, message : string, data : object) => {
+export const GlobalResponse = (res : Response, error : boolean, code : number, message : string, data : object) => {
     res
-    .status(status)
+    .status(code)
     .json({ 
         error : error || false,
         code : code || 200,
@@ -10,3 +12,20 @@ export const GlobalResponse = (res : Response, status : number, error : boolean,
         data : data || {}
     });
 }
+
+export const InternalServerErrorResponse = async (req: Request, res: Response, error: Error) => {
+    console.error("Unexpected Error:", error);
+
+    const userId = (req as UserRequest)?.user ? (req as UserRequest).user.id.toString() : undefined;
+
+    utils.error.logErrorToDatabase(req, error, userId);
+
+    const isDevelopment = process.env.ENVIRONMENT === "DEVELOPMENT";
+
+    res.status(500).json({
+        error: true,
+        code: 500,
+        message: isDevelopment ? error.message : "Internal Server Error",
+        data: {},
+    });
+};
